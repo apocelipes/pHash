@@ -316,9 +316,16 @@ static CImg<float> ph_dct_matrix(const int N) {
     return matrix;
 }
 
-static const CImg<float> dct_matrix = ph_dct_matrix(32);
-static const CImg<float> Ctransp = dct_matrix.get_transpose();
+static const CImg<float> dct_matrix8 = ph_dct_matrix(32).get_crop(0, 1, 31, 8);
+static const CImg<float> Ctransp8 = dct_matrix8.get_transpose();
 static const CImg<float> meanfilter(7, 7, 1, 1, 1);
+
+/*
+ * The input image is still resized to 32x32 before the DCT. The hash only uses
+ * the low-frequency coefficients in the original DCT block (1,1)..(8,8), so we
+ * compute that 8x8 output block directly instead of forming the full 32x32 DCT
+ * image and discarding the unused coefficients.
+ */
 int ph_dct_imagehash(const char *file, ulong64 &hash) {
     if (!file) {
         return -1;
@@ -344,12 +351,10 @@ int ph_dct_imagehash(const char *file, ulong64 &hash) {
     }
 
     img.resize(32, 32);
-    const CImg<float> &C = dct_matrix;
-    const CImg<float> &Ct = Ctransp;
+    const CImg<float> &C = dct_matrix8;
+    const CImg<float> &Ct = Ctransp8;
 
-    CImg<float> dctImage = C * img * Ct;
-
-    CImg<float> subsec = dctImage.crop(1, 1, 8, 8).unroll('x');
+    CImg<float> subsec = (C * img * Ct).unroll('x');
 
     float median = subsec.median();
     hash = 0;
@@ -549,17 +554,15 @@ ulong64 *ph_dct_videohash(const char *filename, int &Length) {
     Length = keyframes->size();
 
     ulong64 *hash = (ulong64 *)malloc(sizeof(ulong64) * Length);
-    const CImg<float> &C = dct_matrix;
-    const CImg<float> &Ct = Ctransp;
-    CImg<float> dctImage;
+    const CImg<float> &C = dct_matrix8;
+    const CImg<float> &Ct = Ctransp8;
     CImg<float> subsec;
     CImg<uint8_t> currentframe;
 
     for (unsigned int i = 0; i < keyframes->size(); i++) {
         currentframe = keyframes->at(i);
         currentframe.blur(1.0);
-        dctImage = C * currentframe * Ct;
-        subsec = dctImage.crop(1, 1, 8, 8).unroll('x');
+        subsec = (C * currentframe * Ct).unroll('x');
         float med = subsec.median();
         hash[i] = 0x0000000000000000;
         ulong64 one = 0x0000000000000001;
