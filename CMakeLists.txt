@@ -4,7 +4,7 @@ project(pHash)
 set(CMAKE_MACOSX_RPATH 1)
 set(pHash_VERSION_MAJOR 1)
 set(pHash_VERSION_MINOR 0)
-set(pHash_VERSION_PATCH 0)
+set(pHash_VERSION_PATCH 3)
 
 enable_language(C CXX)
 set(CMAKE_CXX_STANDARD 20)

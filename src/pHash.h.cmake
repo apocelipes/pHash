@@ -27,7 +27,7 @@
 
 #define PHASH_VERSION_MAJOR 1
 #define PHASH_VERSION_MINOR 0
-#define PHASH_VERSION_PATCH 2
+#define PHASH_VERSION_PATCH 3
 
 #include <limits.h>
 #include <math.h>
