@@ -256,7 +256,10 @@ double ph_dct_videohash_dist(ulong64 *hashA, int N1, ulong64 *hashB, int N2, int
  *   /param hash ulong64 value for hash value
  *   /return int value - less than 0 for error
  */
-int ph_hamming_distance(const ulong64 hash1,const ulong64 hash2);
+inline int ph_hamming_distance(const ulong64 hash1, const ulong64 hash2) {
+    ulong64 x = hash1 ^ hash2;
+    return __builtin_popcountll(x);
+}
 
 /** /brief create MH image hash for filename image
 *   /param filename - string name of image file
@@ -271,7 +274,14 @@ uint8_t* ph_mh_imagehash(const char *filename, int &N, float alpha=2.0f, float l
 *   /param val - uint8_t byte value
 *   /return int value for number of bits set
 **/
-int ph_bitcount8(uint8_t val);
+inline int ph_bitcount8(uint8_t val) {
+    int num = 0;
+    while (val) {
+        ++num;
+        val &= val - 1;
+    }
+    return num;
+}
 
 /** /brief compute hamming distance between two byte arrays
  *  /param hashA - byte array for first hash

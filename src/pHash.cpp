@@ -316,17 +316,23 @@ static CImg<float> ph_dct_matrix(const int N) {
     return matrix;
 }
 
-static const CImg<float> dct_matrix8 = ph_dct_matrix(32).get_crop(0, 1, 31, 8);
+/*
+ * Only the top-left 8x8 DCT coefficients are used. If D = C * I * C^T,
+ * that block is exactly C8 * I * C8^T, where C8 contains rows 0..7 of the
+ * 32-point DCT matrix C. Keeping the input at 32x32 and using this 8x32 basis
+ * computes the same coefficients while avoiding the unused 32x32 DCT output.
+ */
+static const CImg<float> dct_matrix8 = ph_dct_matrix(32).get_crop(0, 0, 31, 7);
 static const CImg<float> Ctransp8 = dct_matrix8.get_transpose();
 static const CImg<float> meanfilter(7, 7, 1, 1, 1);
 
 /*
- * The input image is still resized to 32x32 before the DCT. The hash only uses
- * the low-frequency coefficients in the original DCT block (1,1)..(8,8), so we
- * compute that 8x8 output block directly instead of forming the full 32x32 DCT
- * image and discarding the unused coefficients.
+ * The input is still resized to 32x32 before the DCT. The hash only uses the
+ * low-frequency coefficients in the top-left block (0,0)..(7,7), so compute
+ * that 8x8 output block directly instead of forming the full 32x32 DCT image.
  */
 int ph_dct_imagehash(const char *file, ulong64 &hash) {
+    hash = 0;
     if (!file) {
         return -1;
     }
@@ -334,6 +340,8 @@ int ph_dct_imagehash(const char *file, ulong64 &hash) {
     try {
         src.load(file);
     } catch (CImgIOException &ex) {
+        return -1;
+    } catch (CImgException &ex) {
         return -1;
     }
     CImg<float> img;
@@ -351,16 +359,27 @@ int ph_dct_imagehash(const char *file, ulong64 &hash) {
     }
 
     img.resize(32, 32);
-    const CImg<float> &C = dct_matrix8;
-    const CImg<float> &Ct = Ctransp8;
 
-    CImg<float> subsec = (C * img * Ct).unroll('x');
+    // Canonical pHash (Krawetz "Looks Like It" / Zauner 2010): take the
+    // top-left 8x8 block of the DCT and bit-test each coefficient against
+    // the median of the *other 63*, excluding the DC term at (0,0).
+    //
+    // Earlier versions of this code took (1,1)..(8,8), skipping the entire
+    // first row and column of low frequencies (incompatible with every
+    // other library that calls itself pHash), then took the median over
+    // all 64 values. Including DC in the median was problematic too:
+    // |DC| is typically 10-100x larger than any AC coefficient, so its
+    // hash bit was effectively always 1, wasting one of the 64 hash bits.
+    CImg<float> subsec = (dct_matrix8 * img * Ctransp8).unroll('x');
 
-    float median = subsec.median();
-    hash = 0;
-    for (int i = 0; i < 64; i++, hash <<= 1) {
-        float current = subsec(i);
-        if (current > median) hash |= 0x01;
+    // Median of the 63 AC coefficients (positions 1..63). Skipping DC
+    // here means none of the 64 emitted bits is a foregone conclusion.
+    CImg<float> ac = subsec.get_crop(1, 0, 0, 0, 63, 0, 0, 0);
+    float median = ac.median();
+
+    for (int i = 0; i < 64; i++) {
+        if (subsec(i) > median) hash |= 0x01;
+        if (i < 63) hash <<= 1;
     }
 
     return 0;
@@ -563,7 +582,8 @@ ulong64 *ph_dct_videohash(const char *filename, int &Length) {
         currentframe = keyframes->at(i);
         currentframe.blur(1.0);
         subsec = (C * currentframe * Ct).unroll('x');
-        float med = subsec.median();
+        CImg<float> ac = subsec.get_crop(1, 0, 0, 0, 63, 0, 0, 0);
+        float med = ac.median();
         hash[i] = 0x0000000000000000;
         ulong64 one = 0x0000000000000001;
         for (int j = 0; j < 64; j++) {
@@ -608,11 +628,6 @@ double ph_dct_videohash_dist(ulong64 *hashA, int N1, ulong64 *hashB, int N2,
 }
 
 #endif
-
-int ph_hamming_distance(const ulong64 hash1, const ulong64 hash2) {
-    ulong64 x = hash1 ^ hash2;
-    return __builtin_popcountll(x);
-}
 
 #ifdef HAVE_IMAGE_HASH
 
@@ -701,15 +716,6 @@ uint8_t *ph_mh_imagehash(const char *filename, int &N, float alpha, float lvl) {
     return hash;
 }
 #endif
-
-int ph_bitcount8(uint8_t val) {
-    int num = 0;
-    while (val) {
-        ++num;
-        val &= val - 1;
-    }
-    return num;
-}
 
 double ph_hammingdistance2(uint8_t *hashA, int lenA, uint8_t *hashB, int lenB) {
     if (lenA != lenB) {
