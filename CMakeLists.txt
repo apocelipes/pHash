@@ -62,8 +62,26 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BUILD_TYPE}")
 link_directories(/usr/local/lib)
 include_directories(/usr/local/include)
 
+find_package(PNG REQUIRED)
+find_package(JPEG REQUIRED)
+find_package(TIFF REQUIRED)
+find_package(WebP REQUIRED)
+find_package(libheif CONFIG REQUIRED)
 
-set(LIBS_DEPS png z jpeg tiff heif webp jxl)
+find_package(libjxl CONFIG QUIET)
+
+if(libjxl_FOUND)
+    message(STATUS "Found libjxl via CMake Config")
+    set(JXL_TARGET libjxl::libjxl)
+else()
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(JXL REQUIRED IMPORTED_TARGET libjxl)
+    set(JXL_TARGET PkgConfig::JXL)
+    message(STATUS "Found libjxl via pkg-config")
+endif()
+
+
+set(LIBS_DEPS z)
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
@@ -96,7 +114,7 @@ if(PHASH_STATIC)
 endif()
 
 set_property(TARGET pHash PROPERTY VERSION "${pHash_VERSION_MAJOR}.${pHash_VERSION_MINOR}.${pHash_VERSION_PATCH}")
-target_link_libraries(pHash ${LIBS_DEPS})
+target_link_libraries(pHash ${LIBS_DEPS} PNG::PNG JPEG::JPEG TIFF::TIFF WebP::webp ${JXL_TARGET} heif)
 
 install(TARGETS pHash DESTINATION ${LIBDIR})
 install(FILES src/pHash.h DESTINATION include)
