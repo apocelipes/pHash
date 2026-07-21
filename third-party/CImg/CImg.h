@@ -2468,11 +2468,7 @@ namespace cimg_library {
     }
 
     // Set/Get a global user_agent value.
-    inline const char* user_agent(const char *const str=0) {
-      static const char *value = "CImg";
-      if (str) { cimg::mutex(0); value = str; cimg::mutex(0,0); }
-      return value;
-    }
+    inline const char* user_agent(const char *const str=0);
 
     // Functions to return standard streams 'stdin', 'stdout' and 'stderr'.
     inline FILE* _stdin(const bool throw_exception=true);
@@ -56189,9 +56185,9 @@ namespace cimg_library {
         assign();
         if (!file) cimg::fclose(nfile);
         throw CImgIOException(_cimg_instance
-                              "load_pnm(): PNM type 'P%d' found, but type is not supported.",
+                              "load_pnm(): PNM type 'P%u' found, but type is not supported in file '%s'.",
                               cimg_instance,
-                              filename?filename:"(FILE*)",ppm_type);
+                              ppm_type,filename?filename:"(FILE*)");
       }
       if (!file) cimg::fclose(nfile);
       return *this;
@@ -61219,7 +61215,7 @@ namespace cimg_library {
         if (!ftmp) {
           std::remove(filename_tmp);
           throw CImgIOException(_cimg_instance "save_tiff(): Failed to reopen temporary file '%s'.",
-                                cimg_instance,filename_tmp);
+                                cimg_instance,filename_tmp._data);
         }
         CImg<charT> buffer(65536);
         size_t n;
@@ -66942,7 +66938,7 @@ namespace cimg_library {
         if (!ftmp) {
           std::remove(filename_tmp);
           throw CImgIOException(_cimglist_instance "save_tiff(): Failed to reopen temporary file '%s'.",
-                                cimglist_instance,filename_tmp);
+                                cimglist_instance,filename_tmp._data);
         }
         CImg<charT> buffer(65536);
         size_t n;
@@ -67756,6 +67752,13 @@ namespace cimg_library {
         std::fprintf(cimg::output(),"\n%s[CImg] *** Warning ***%s%s\n",cimg::t_red(),cimg::t_normal(),message._data);
 #endif
       }
+    }
+
+    //! Set/Get a global user_agent value.
+    inline const char* user_agent(const char *const str) {
+      static CImg<char> value = CImg<char>::string("CImg");
+      if (str) { cimg::mutex(0); CImg<char>::string(str).move_to(value); cimg::mutex(0,0); }
+      return value;
     }
 
     //! Search path of an executable.

@@ -114,6 +114,15 @@ if(PHASH_STATIC)
 endif()
 
 set_property(TARGET pHash PROPERTY VERSION "${pHash_VERSION_MAJOR}.${pHash_VERSION_MINOR}.${pHash_VERSION_PATCH}")
+
+target_include_directories(pHash PRIVATE
+        ${WebP_INCLUDE_DIRS}
+        ${JXL_INCLUDE_DIRS}
+        ${HEIF_INCLUDE_DIRS}
+        ${PNG_INCLUDE_DIRS}
+        ${JPEG_INCLUDE_DIR}
+        ${ZLIB_INCLUDE_DIRS}
+)
 target_link_libraries(pHash ${LIBS_DEPS} PNG::PNG JPEG::JPEG TIFF::TIFF WebP::webp ${JXL_TARGET} heif)
 
 install(TARGETS pHash DESTINATION ${LIBDIR})
